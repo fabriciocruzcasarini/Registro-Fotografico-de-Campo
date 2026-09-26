@@ -121,8 +121,8 @@ object WatermarkUtil {
         val workingBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(workingBitmap)
 
-        // 1. Draw Top Ribbon / Badge (Faixa no topo da foto com identificação ANTES / DURANTE / DEPOIS)
-        val topBarHeight = (height * 0.057f).coerceIn(42f, 75f)
+        // 1. Draw Top Ribbon / Badge (Faixa no topo da foto com identificação ANTES / DURANTE / DEPOIS +15% aumentada)
+        val topBarHeight = (height * 0.0655f).coerceIn(48f, 86f)
         val topBarPaint = Paint().apply {
             color = photoType.badgeColor // Yellow (#EAB308) for ANTES, Blue for DURANTE, Green (#22C55E) for DEPOIS
             style = Paint.Style.FILL
@@ -145,7 +145,7 @@ object WatermarkUtil {
 
         val topTextPaint = Paint().apply {
             color = if (photoType == PhotoType.BEFORE) Color.BLACK else Color.WHITE
-            textSize = (topBarHeight * 0.57f).coerceAtLeast(20f)
+            textSize = (topBarHeight * 0.58f).coerceAtLeast(23f)
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
             textAlign = Paint.Align.CENTER
@@ -153,11 +153,11 @@ object WatermarkUtil {
         val topTextY = (topBarHeight / 2f) - ((topTextPaint.descent() + topTextPaint.ascent()) / 2f)
         canvas.drawText(topText, width / 2f, topTextY, topTextPaint)
 
-        // 2. Text formatting paint for bottom data lines (+10% increased frame and typography)
-        val textSize = (height * 0.0253f).coerceIn(18f, 38f)
+        // 2. Text formatting paint for bottom data lines (+15% increased typography and frame)
+        val textSize = (height * 0.0291f).coerceIn(21f, 44f)
         val lineSpacing = textSize * 1.34f
-        val verticalPadding = textSize * 0.88f
-        val paddingLeft = (width * 0.022f).coerceAtLeast(18f)
+        val verticalPadding = textSize * 0.90f
+        val paddingLeft = (width * 0.025f).coerceAtLeast(21f)
 
         val textPaint = Paint().apply {
             color = Color.WHITE
@@ -203,8 +203,8 @@ object WatermarkUtil {
         val hasObs = observations.isNotBlank()
 
         val lineCount = if (hasObs) 6 else 5
-        // Calculate exact tight banner height to fit text and stick to bottom (+10% increased frame)
-        val bannerHeight = (lineCount * lineSpacing) + (verticalPadding * 1.32f)
+        // Calculate exact tight banner height to fit text and stick to bottom (+15% increased frame)
+        val bannerHeight = (lineCount * lineSpacing) + (verticalPadding * 1.35f)
         val bannerTop = height.toFloat() - bannerHeight
 
         // Dark semi-transparent background for banner glued to the bottom
@@ -232,7 +232,7 @@ object WatermarkUtil {
 
         if (hasObs) {
             currentY += lineSpacing
-            val obsText = "OBS: ${observations.take(65)}${if (observations.length > 65) "..." else ""}"
+            val obsText = "OBS: ${observations.take(60)}${if (observations.length > 60) "..." else ""}"
             canvas.drawText(obsText, paddingLeft, currentY, textPaintRegular)
         }
 

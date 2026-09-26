@@ -265,22 +265,37 @@ object PdfReportExporter {
                 // 3. Technical Attributes Lines
                 var infoY = currentY + cardHeaderHeight + 12f
                 val col1X = MARGIN + innerPaddingX
-                val col2X = MARGIN + (CONTENT_WIDTH * 0.40f)
+                val col2X = MARGIN + (CONTENT_WIDTH * 0.44f)
                 val col3X = MARGIN + (CONTENT_WIDTH * 0.72f)
+                val colGpsX = MARGIN + (CONTENT_WIDTH * 0.68f)
 
-                fun drawField(label: String, value: String, x: Float, y: Float) {
+                fun drawField(label: String, value: String, x: Float, y: Float, maxWidth: Float? = null) {
                     val labelText = "$label: "
                     canvas.drawText(labelText, x, y, labelPaint)
                     val labelWidth = labelPaint.measureText(labelText)
-                    canvas.drawText(value, x + labelWidth, y, valuePaint)
+                    val textToDraw = if (maxWidth != null && maxWidth > labelWidth) {
+                        val availValWidth = maxWidth - labelWidth
+                        if (valuePaint.measureText(value) > availValWidth) {
+                            var truncated = value
+                            while (truncated.isNotEmpty() && valuePaint.measureText("$truncated…") > availValWidth) {
+                                truncated = truncated.dropLast(1)
+                            }
+                            "$truncated…"
+                        } else {
+                            value
+                        }
+                    } else {
+                        value
+                    }
+                    canvas.drawText(textToDraw, x + labelWidth, y, valuePaint)
                 }
 
                 // Line 1: Rodovia & Trecho & Encarregado
-                drawField("Rodovia", "${act.highway} (${act.direction} • ${act.laneType})", col1X, infoY)
-                drawField("Trecho", "KM ${act.kmStart}${if (act.kmEnd.isNotBlank()) " ao ${act.kmEnd}" else ""}", col2X, infoY)
-                drawField("Encarregado", act.operatorName, col3X, infoY)
+                drawField("Rodovia", "${act.highway} (${act.direction} • ${act.laneType})", col1X, infoY, col2X - col1X - 6f)
+                drawField("Trecho", "KM ${act.kmStart}${if (act.kmEnd.isNotBlank()) " ao ${act.kmEnd}" else ""}", col2X, infoY, col3X - col2X - 6f)
+                drawField("Encarregado", act.operatorName, col3X, infoY, (MARGIN + CONTENT_WIDTH - innerPaddingX) - col3X)
 
-                // Line 2: Faixa/Eixo/Cadência & GPS & Status
+                // Line 2: Faixa/Eixo/Cadência (Local) & GPS (sem Status)
                 infoY += 13f
                 val laneDisplay = when {
                     act.lane.isBlank() -> "-"
@@ -293,13 +308,12 @@ object PdfReportExporter {
                     if (act.cadence.isNotBlank()) append(" | Cadência: ${act.cadence}")
                     if (act.plateText.isNotBlank()) append(" | Texto: \"${act.plateText}\"")
                 }
-                drawField("Local", specText, col1X, infoY)
-                drawField("GPS", String.format(Locale.US, "%.5f, %.5f", act.latitude, act.longitude), col2X, infoY)
-                drawField("Status", if (act.isSent) "Enviado WhatsApp" else "Pendente", col3X, infoY)
+                drawField("Local", specText, col1X, infoY, colGpsX - col1X - 8f)
+                drawField("GPS", String.format(Locale.US, "%.5f, %.5f", act.latitude, act.longitude), colGpsX, infoY, (MARGIN + CONTENT_WIDTH - innerPaddingX) - colGpsX)
 
                 if (hasObs) {
                     infoY += 13f
-                    drawField("Observações", act.observations.take(85), col1X, infoY)
+                    drawField("Observações", act.observations, col1X, infoY, (MARGIN + CONTENT_WIDTH - innerPaddingX) - col1X)
                 }
 
                 // 4. Photos Row (All photos of this activity side-by-side in 1 single horizontal line)
