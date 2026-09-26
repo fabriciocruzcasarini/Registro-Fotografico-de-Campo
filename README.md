@@ -27,12 +27,8 @@ profissional automatizada e exportação de relatórios técnicos em PDF e CSV.
 | Formulário de Campo | Histórico | Relatório PDF |
 |:---:|:---:|:---:|
 | Cadastro com GPS e fotos | Filtros e seleção múltipla | Layout A4 técnico |
-| *Em Breve* | *Em Breve* | *Em Breve* |
 
 </div>
-
-> 💡 **Dica:** adicione screenshots reais em `docs/` e referencie-os aqui com
-> `![Formulário](docs/formulario.png)`.
 
 ---
 
