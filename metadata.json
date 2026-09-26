@@ -1,0 +1,8 @@
+{
+  "name": "RegistroFotografico - Testar remoção",
+  "description": "Aplicativo para registro de atividades em campo com marca d\u0027água nas fotos e compartilhamento via WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

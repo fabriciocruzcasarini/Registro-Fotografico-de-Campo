@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- App internal files & pictures -->
+    <files-path name="internal_files" path="." />
+    <files-path name="internal_pictures" path="Pictures" />
+    <!-- App external files & pictures -->
+    <external-files-path name="external_files" path="." />
+    <external-files-path name="field_pictures" path="Pictures" />
+    <!-- Camera temporary captures strictly to app cache directory -->
+    <cache-path name="camera_captures" path="." />
+</paths>
+
