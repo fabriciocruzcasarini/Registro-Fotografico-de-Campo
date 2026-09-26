@@ -410,8 +410,6 @@ definida** — adicione um arquivo `LICENSE` antes de publicar.
 
 Sugestões usuais para projetos como este:
 
-- **MIT** — uso livre, inclusive comercial
-- **Apache 2.0** — mesma coisa que a MIT, com proteção de patentes explícita
 - **GPL-3.0** — obras derivadas obrigadas a abrir o código
 
 ---
