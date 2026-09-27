@@ -454,6 +454,31 @@ fun HistoryScreen(
         }
     }
 
+    // Blocking Progress Dialog during Export
+    if (isExporting) {
+        AlertDialog(
+            onDismissRequest = { /* Blocking dialog */ },
+            confirmButton = {},
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.5.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Gerando Relatório...", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                }
+            },
+            text = {
+                Text(
+                    "Processando fotos e formatando documento para exportação. Por favor, aguarde alguns instantes...",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        )
+    }
+
     // Watermark Preview Modal
     selectedActivityForPreview?.let { activity ->
         WatermarkPreviewModal(

@@ -16,6 +16,7 @@ object LocationHelper {
         val longitude: Double,
         val accuracy: Float? = null,
         val isMock: Boolean = false,
+        val isFallback: Boolean = false,
         val sourceName: String = "GPS"
     )
 
@@ -25,6 +26,7 @@ object LocationHelper {
         longitude = -46.633308,
         accuracy = null,
         isMock = true,
+        isFallback = true,
         sourceName = "Padrão (São Paulo SP)"
     )
 

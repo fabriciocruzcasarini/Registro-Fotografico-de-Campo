@@ -52,44 +52,59 @@ object WatermarkUtil {
         longitude: Double,
         timestampMs: Long = System.currentTimeMillis()
     ): String {
-        val originalBitmap = loadAndCorrectBitmap(context, sourceUri)
-            ?: createFallbackBitmap(photoType.label)
+        var originalBitmap: Bitmap? = null
+        var watermarkedBitmap: Bitmap? = null
+        try {
+            originalBitmap = loadAndCorrectBitmap(context, sourceUri)
+                ?: createFallbackBitmap(photoType.label)
 
-        val watermarkedBitmap = applyWatermarkToBitmap(
-            bitmap = originalBitmap,
-            photoType = photoType,
-            operatorName = operatorName,
-            highway = highway,
-            direction = direction,
-            laneType = laneType,
-            activityType = activityType,
-            studType = studType,
-            plateType = plateType,
-            plateCode = plateCode,
-            plateText = plateText,
-            lane = lane,
-            legendDescription = legendDescription,
-            eixo = eixo,
-            cadence = cadence,
-            observations = observations,
-            kmStart = kmStart,
-            kmEnd = kmEnd,
-            latitude = latitude,
-            longitude = longitude,
-            timestampMs = timestampMs
-        )
+            watermarkedBitmap = applyWatermarkToBitmap(
+                bitmap = originalBitmap,
+                photoType = photoType,
+                operatorName = operatorName,
+                highway = highway,
+                direction = direction,
+                laneType = laneType,
+                activityType = activityType,
+                studType = studType,
+                plateType = plateType,
+                plateCode = plateCode,
+                plateText = plateText,
+                lane = lane,
+                legendDescription = legendDescription,
+                eixo = eixo,
+                cadence = cadence,
+                observations = observations,
+                kmStart = kmStart,
+                kmEnd = kmEnd,
+                latitude = latitude,
+                longitude = longitude,
+                timestampMs = timestampMs
+            )
 
-        val timeStampStr = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(Date(timestampMs))
-        val fileName = "WM_${photoType.name}_$timeStampStr.jpg"
-        val storageDir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
-            ?: context.filesDir
+            val timeStampStr = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(Date(timestampMs))
+            val fileName = "WM_${photoType.name}_$timeStampStr.jpg"
+            val storageDir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
+                ?: context.filesDir
 
-        val outputFile = File(storageDir, fileName)
-        FileOutputStream(outputFile).use { out ->
-            watermarkedBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+            val outputFile = File(storageDir, fileName)
+            FileOutputStream(outputFile).use { out ->
+                watermarkedBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+            }
+
+            return outputFile.absolutePath
+        } finally {
+            try {
+                if (originalBitmap != null && !originalBitmap.isRecycled) {
+                    originalBitmap.recycle()
+                }
+            } catch (_: Exception) {}
+            try {
+                if (watermarkedBitmap != null && !watermarkedBitmap.isRecycled) {
+                    watermarkedBitmap.recycle()
+                }
+            } catch (_: Exception) {}
         }
-
-        return outputFile.absolutePath
     }
 
     private fun applyWatermarkToBitmap(

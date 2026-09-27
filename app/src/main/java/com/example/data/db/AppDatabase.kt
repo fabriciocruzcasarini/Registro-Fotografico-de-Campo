@@ -8,7 +8,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.data.model.FieldActivity
 
-@Database(entities = [FieldActivity::class], version = 6, exportSchema = false)
+@Database(entities = [FieldActivity::class], version = 7, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun fieldActivityDao(): FieldActivityDao
 
@@ -52,6 +52,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_field_activities_timestamp` ON `field_activities` (`timestamp`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_field_activities_isSent` ON `field_activities` (`isSent`)")
+            }
+        }
+
         private fun addColumnIfNotExists(
             database: SupportSQLiteDatabase,
             tableName: String,
@@ -85,7 +92,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_2_3,
                         MIGRATION_3_4,
                         MIGRATION_4_5,
-                        MIGRATION_5_6
+                        MIGRATION_5_6,
+                        MIGRATION_6_7
                     )
                     .build()
                 INSTANCE = instance

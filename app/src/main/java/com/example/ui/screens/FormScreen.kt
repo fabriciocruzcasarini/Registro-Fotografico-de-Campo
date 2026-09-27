@@ -122,6 +122,11 @@ fun FormScreen(
     // State for Lane Info Dialog (?)
     var showLaneInfoDialog by remember { mutableStateOf(false) }
 
+    // State for GPS Warning Confirmation Dialog & Cancel Edit Dialog
+    var showGpsWarningDialog by remember { mutableStateOf(false) }
+    var pendingShareToWhatsApp by remember { mutableStateOf(false) }
+    var showCancelEditDialog by remember { mutableStateOf(false) }
+
     val scrollState = rememberScrollState()
 
     Column(
@@ -1094,7 +1099,12 @@ fun FormScreen(
             // Action 1: Immediate WhatsApp Share / Atualizar e Enviar
             Button(
                 onClick = {
-                    viewModel.saveActivity(context, shareImmediatelyToWhatsApp = true)
+                    if (formState.isLocationFallback) {
+                        pendingShareToWhatsApp = true
+                        showGpsWarningDialog = true
+                    } else {
+                        viewModel.saveActivity(context, shareImmediatelyToWhatsApp = true)
+                    }
                 },
                 enabled = !formState.isSaving,
                 modifier = Modifier
@@ -1133,7 +1143,12 @@ fun FormScreen(
             // Action 2: Save locally / Atualizar no Histórico
             OutlinedButton(
                 onClick = {
-                    viewModel.saveActivity(context, shareImmediatelyToWhatsApp = false)
+                    if (formState.isLocationFallback) {
+                        pendingShareToWhatsApp = false
+                        showGpsWarningDialog = true
+                    } else {
+                        viewModel.saveActivity(context, shareImmediatelyToWhatsApp = false)
+                    }
                 },
                 enabled = !formState.isSaving,
                 modifier = Modifier
@@ -1158,7 +1173,7 @@ fun FormScreen(
             // Action 3: Se estiver em modo edição, botão para descartar alterações
             if (formState.isEditing) {
                 TextButton(
-                    onClick = { viewModel.cancelEditing() },
+                    onClick = { showCancelEditDialog = true },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
@@ -1178,6 +1193,78 @@ fun FormScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    // Modal Dialog: Confirmação de GPS Indisponível / Padrão
+    if (showGpsWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showGpsWarningDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Aviso de Localização GPS",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "O sinal do GPS não foi detectado com precisão ou está utilizando coordenadas padrão. Deseja tentar obter a localização por satélite novamente ou continuar com as coordenadas atuais?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showGpsWarningDialog = false
+                        viewModel.saveActivity(context, shareImmediatelyToWhatsApp = pendingShareToWhatsApp)
+                    }
+                ) {
+                    Text("Prosseguir e Salvar")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showGpsWarningDialog = false
+                        viewModel.fetchCurrentLocation(context)
+                    }
+                ) {
+                    Text("Tentar Obter GPS")
+                }
+            }
+        )
+    }
+
+    // Modal Dialog: Confirmação de Cancelamento de Edição
+    if (showCancelEditDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelEditDialog = false },
+            title = { Text("Cancelar Edição?") },
+            text = { Text("Todas as alterações não salvas serão descartadas.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showCancelEditDialog = false
+                        viewModel.cancelEditing()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Descartar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelEditDialog = false }) {
+                    Text("Continuar Editando")
+                }
+            }
+        )
     }
 
     // Modal Dialog: Informações das Legendas das Faixas

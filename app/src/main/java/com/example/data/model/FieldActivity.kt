@@ -1,9 +1,16 @@
 package com.example.data.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "field_activities")
+@Entity(
+    tableName = "field_activities",
+    indices = [
+        Index(value = ["timestamp"]),
+        Index(value = ["isSent"])
+    ]
+)
 data class FieldActivity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val operatorName: String,

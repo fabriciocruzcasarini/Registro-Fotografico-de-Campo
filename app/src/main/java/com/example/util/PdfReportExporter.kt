@@ -352,6 +352,12 @@ object PdfReportExporter {
             val reportsDir = File(context.cacheDir, "reports").apply {
                 if (!exists()) mkdirs()
             }
+            try {
+                val cutoff = System.currentTimeMillis() - (7L * 24 * 60 * 60 * 1000)
+                reportsDir.listFiles()?.forEach { file ->
+                    if (file.lastModified() < cutoff) file.delete()
+                }
+            } catch (_: Exception) {}
 
             val pdfFile = File(reportsDir, "Relatorio_Campo_$timestampStr.pdf")
             FileOutputStream(pdfFile).use { out ->

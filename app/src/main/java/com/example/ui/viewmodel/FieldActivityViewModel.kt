@@ -53,6 +53,7 @@ data class FormUiState(
     val photoAfterUri: Uri? = null,
     val isFetchingLocation: Boolean = false,
     val locationStatusText: String = "GPS Pronto",
+    val isLocationFallback: Boolean = false,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val isEditing: Boolean = false,
@@ -100,19 +101,31 @@ class FieldActivityViewModel(
         }
     }
 
+    private var sessionOperatorName: String = preferencesManager?.defaultOperatorName ?: ""
+
     fun saveDefaultOperatorName(name: String) {
         preferencesManager?.defaultOperatorName = name
-        if (!_formState.value.isEditing && _formState.value.operatorName.isBlank()) {
-            _formState.update { it.copy(operatorName = name) }
-        }
+        sessionOperatorName = name
+        try {
+            _formState.update { current ->
+                if (!current.isEditing && current.operatorName.isBlank()) {
+                    current.copy(operatorName = name)
+                } else current
+            }
+        } catch (_: Exception) {}
         viewModelScope.launch {
             _uiEvent.emit(UiEvent.ShowToast("Nome padrão do operador salvo com sucesso!"))
         }
     }
 
-    private fun createDefaultFormState(): FormUiState {
-        val initialOperator = preferencesManager?.defaultOperatorName ?: ""
-        return FormUiState(operatorName = initialOperator)
+    private fun createDefaultFormState(preserveOperator: Boolean = true): FormUiState {
+        val configuredDefault = preferencesManager?.defaultOperatorName ?: ""
+        val currentOperator = if (preserveOperator && sessionOperatorName.isNotBlank()) {
+            sessionOperatorName
+        } else {
+            configuredDefault
+        }
+        return FormUiState(operatorName = currentOperator)
     }
 
     val directionOptions = listOf("Norte", "Sul", "Leste", "Oeste")
@@ -219,6 +232,7 @@ class FieldActivityViewModel(
         )
 
     fun updateOperatorName(value: String) {
+        sessionOperatorName = value
         _formState.update { it.copy(operatorName = value, errorMessage = null) }
     }
 
@@ -347,14 +361,16 @@ class FieldActivityViewModel(
                         latitude = result.latitude,
                         longitude = result.longitude,
                         gpsAccuracy = result.accuracy,
+                        isLocationFallback = result.isFallback,
                         isFetchingLocation = false,
-                        locationStatusText = "Coordenadas GPS Atualizadas"
+                        locationStatusText = if (result.isFallback) "GPS Padrão/Estimado" else "Coordenadas GPS Atualizadas"
                     )
                 }
             },
             onError = { err ->
                 _formState.update {
                     it.copy(
+                        isLocationFallback = true,
                         isFetchingLocation = false,
                         locationStatusText = "GPS Padrão Utilizado"
                     )
@@ -519,7 +535,9 @@ class FieldActivityViewModel(
         }
         if (state.highway.isBlank()) return "Informe a Rodovia."
         if (state.kmStart.isBlank()) return "Informe o KM Inicial."
-        if (state.kmEnd.isBlank()) return "Informe o KM Final."
+        if (state.kmEnd.isBlank() && !isPlateActivity(state.activityType)) {
+            return "Informe o KM Final."
+        }
         if (state.photoBeforeUri == null) return "Por favor, tire a foto do ANTES do serviço."
         if (_photoCount.value == 3 && state.photoDuringUri == null) {
             return "Por favor, tire a foto do DURANTE a execução do serviço."
@@ -563,6 +581,9 @@ class FieldActivityViewModel(
 
                 val legendDescValue = if (laneValue.equals("LEGENDA", ignoreCase = true)) state.legendDescription else ""
 
+                val kmStartVal = state.kmStart.trim()
+                val kmEndVal = if (state.kmEnd.isBlank()) kmStartVal else state.kmEnd.trim()
+
                 // Generate watermarked photos
                 val photoBeforePath = WatermarkUtil.createWatermarkedPhoto(
                     context = context,
@@ -582,8 +603,8 @@ class FieldActivityViewModel(
                     eixo = state.eixo,
                     cadence = state.cadence,
                     observations = state.observations,
-                    kmStart = state.kmStart,
-                    kmEnd = state.kmEnd,
+                    kmStart = kmStartVal,
+                    kmEnd = kmEndVal,
                     latitude = state.latitude,
                     longitude = state.longitude,
                     timestampMs = timestamp
@@ -608,8 +629,8 @@ class FieldActivityViewModel(
                         eixo = state.eixo,
                         cadence = state.cadence,
                         observations = state.observations,
-                        kmStart = state.kmStart,
-                        kmEnd = state.kmEnd,
+                        kmStart = kmStartVal,
+                        kmEnd = kmEndVal,
                         latitude = state.latitude,
                         longitude = state.longitude,
                         timestampMs = timestamp
@@ -636,8 +657,8 @@ class FieldActivityViewModel(
                     eixo = state.eixo,
                     cadence = state.cadence,
                     observations = state.observations,
-                    kmStart = state.kmStart,
-                    kmEnd = state.kmEnd,
+                    kmStart = kmStartVal,
+                    kmEnd = kmEndVal,
                     latitude = state.latitude,
                     longitude = state.longitude,
                     timestampMs = timestamp
@@ -659,8 +680,8 @@ class FieldActivityViewModel(
                     eixo = state.eixo,
                     cadence = state.cadence,
                     observations = state.observations,
-                    kmStart = state.kmStart,
-                    kmEnd = state.kmEnd,
+                    kmStart = kmStartVal,
+                    kmEnd = kmEndVal,
                     latitude = state.latitude,
                     longitude = state.longitude,
                     timestamp = timestamp,
