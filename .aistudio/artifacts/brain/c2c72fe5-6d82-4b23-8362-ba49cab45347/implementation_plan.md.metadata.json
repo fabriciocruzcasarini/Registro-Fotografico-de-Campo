@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano de implementação para reestruturação do relatório PDF: cabeçalho técnico, remoção de textos sobrepostos nas fotos, exibição de todas as fotos de cada registro em uma única linha horizontal (2 ou 3 fotos lado a lado) e empilhamento dos registros subsequentes nas linhas abaixo com paginação automática contínua.",
-  "updatedAt":  "2026-09-26T12:20:33.369770852Z",
+  "summary":  "Plano para aumentar em 15% o tamanho das fontes e a altura dos backgrounds superior e inferior da marca d'água técnica nas fotos no arquivo WatermarkUtil.kt.",
+  "updatedAt":  "2026-09-26T14:40:58.843094592Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
