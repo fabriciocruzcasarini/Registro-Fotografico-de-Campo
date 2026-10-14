@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -109,6 +110,11 @@ fun MainAppScreen(viewModel: FieldActivityViewModel) {
     val formState by viewModel.formState.collectAsState()
     val savedActivities by viewModel.savedActivities.collectAsState()
     val pendingCount = remember(savedActivities) { savedActivities.count { !it.isSent } }
+
+    // Intercept system Back button: if on secondary tab, return to FORM tab
+    BackHandler(enabled = currentTab != ScreenTab.FORM) {
+        currentTab = ScreenTab.FORM
+    }
 
     // Request permissions on launch
     val permissionLauncher = rememberLauncherForActivityResult(

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -28,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
@@ -37,6 +39,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Pending
@@ -118,6 +121,15 @@ fun HistoryScreen(
 
     val allFilteredSelected = remember(filteredList, selectedActivityIds) {
         filteredList.isNotEmpty() && filteredList.all { it.id in selectedActivityIds }
+    }
+
+    // Intercept back button: dismiss preview or exit selection mode before system navigation
+    BackHandler(enabled = isSelectionMode || selectedActivityForPreview != null) {
+        if (selectedActivityForPreview != null) {
+            selectedActivityForPreview = null
+        } else if (isSelectionMode) {
+            viewModel.setSelectionMode(false)
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -528,6 +540,7 @@ fun ActivityHistoryCard(
     onDeleteClick: () -> Unit = {}
 ) {
     val dateStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(activity.timestamp))
+    val isPendingAfterPhoto = activity.photoAfterPath.isBlank()
 
     val cardBorder = if (isSelectionMode && isSelected) {
         Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
@@ -593,22 +606,42 @@ fun ActivityHistoryCard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (activity.isSent) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
+                            when {
+                                isPendingAfterPhoto -> Color(0xFFFEF3C7) // Amber/Yellow
+                                activity.isSent -> Color(0xFFDCFCE7)    // Green
+                                else -> Color(0xFFEFF6FF)                // Blue
+                            }
                         )
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Icon(
-                        imageVector = if (activity.isSent) Icons.Default.CheckCircle else Icons.Default.Pending,
+                        imageVector = when {
+                            isPendingAfterPhoto -> Icons.Default.HourglassTop
+                            activity.isSent -> Icons.Default.CheckCircle
+                            else -> Icons.Default.Pending
+                        },
                         contentDescription = null,
-                        tint = if (activity.isSent) Color(0xFF16A34A) else Color(0xFFD97706),
+                        tint = when {
+                            isPendingAfterPhoto -> Color(0xFFD97706)
+                            activity.isSent -> Color(0xFF16A34A)
+                            else -> Color(0xFF2563EB)
+                        },
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (activity.isSent) "Enviado WhatsApp" else "Pendente",
+                        text = when {
+                            isPendingAfterPhoto -> "Aguardando Foto DEPOIS"
+                            activity.isSent -> "Enviado WhatsApp"
+                            else -> "Pendente"
+                        },
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                         fontWeight = FontWeight.Bold,
-                        color = if (activity.isSent) Color(0xFF15803D) else Color(0xFFB45309)
+                        color = when {
+                            isPendingAfterPhoto -> Color(0xFFB45309)
+                            activity.isSent -> Color(0xFF15803D)
+                            else -> Color(0xFF1D4ED8)
+                        }
                     )
                 }
             }
@@ -753,26 +786,61 @@ fun ActivityHistoryCard(
                         .weight(1f)
                         .aspectRatio(1f)
                         .clip(RoundedCornerShape(8.dp))
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                ) {
-                    AsyncImage(
-                        model = File(activity.photoAfterPath),
-                        contentDescription = "Foto Depois",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.matchParentSize()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .background(Color(0xCC0F172A))
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "DEPOIS",
-                            color = Color(0xFF22C55E),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 9.sp
+                        .border(
+                            width = 1.dp,
+                            color = if (isPendingAfterPhoto) Color(0xFFF59E0B) else MaterialTheme.colorScheme.outline,
+                            shape = RoundedCornerShape(8.dp)
                         )
+                ) {
+                    if (isPendingAfterPhoto) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFFFFFBEB))
+                                .padding(4.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AddAPhoto,
+                                contentDescription = "Adicionar Foto Depois",
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "DEPOIS",
+                                color = Color(0xFFB45309),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 9.sp
+                            )
+                            Text(
+                                text = "(Pendente)",
+                                color = Color(0xFFD97706),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    } else {
+                        AsyncImage(
+                            model = File(activity.photoAfterPath),
+                            contentDescription = "Foto Depois",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.matchParentSize()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .background(Color(0xCC0F172A))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "DEPOIS",
+                                color = Color(0xFF22C55E),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 9.sp
+                            )
+                        }
                     }
                 }
             }
@@ -810,15 +878,28 @@ fun ActivityHistoryCard(
                             onClick = onEditClick,
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f),
+                            colors = if (isPendingAfterPhoto) {
+                                ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                ButtonDefaults.filledTonalButtonColors()
+                            },
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Edit,
+                                imageVector = if (isPendingAfterPhoto) Icons.Default.AddAPhoto else Icons.Default.Edit,
                                 contentDescription = "Editar",
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Editar", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text(
+                                text = if (isPendingAfterPhoto) "Completar Depois" else "Editar",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
                         }
                     }
 
@@ -830,9 +911,12 @@ fun ActivityHistoryCard(
                     ) {
                         Button(
                             onClick = onShareClick,
+                            enabled = !isPendingAfterPhoto,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = WhatsAppGreen,
-                                contentColor = Color.White
+                                contentColor = Color.White,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                             ),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f),
@@ -849,6 +933,7 @@ fun ActivityHistoryCard(
 
                         OutlinedButton(
                             onClick = onExportSinglePdf,
+                            enabled = !isPendingAfterPhoto,
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
                         ) {

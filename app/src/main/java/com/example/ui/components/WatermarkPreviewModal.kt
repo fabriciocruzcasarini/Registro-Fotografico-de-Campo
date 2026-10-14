@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -166,6 +167,7 @@ fun WatermarkPreviewModal(
 
                     // Photo After Card
                     val afterNumber = if (activity.photoDuringPath.isNotBlank()) "3" else "2"
+                    val hasAfterPhoto = activity.photoAfterPath.isNotBlank() && File(activity.photoAfterPath).exists()
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -175,22 +177,54 @@ fun WatermarkPreviewModal(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color(0xFF22C55E))
+                                    .background(if (hasAfterPhoto) Color(0xFF22C55E) else Color(0xFFF59E0B))
                                     .padding(8.dp)
                             ) {
                                 Text(
-                                    text = "$afterNumber. FOTO DEPOIS (CONCLUSÃO)",
+                                    text = if (hasAfterPhoto) "$afterNumber. FOTO DEPOIS (CONCLUSÃO)" else "$afterNumber. FOTO DEPOIS (PENDENTE)",
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             }
-                            AsyncImage(
-                                model = File(activity.photoAfterPath),
-                                contentDescription = "Foto Depois Watermarked",
-                                contentScale = ContentScale.FillWidth,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            if (hasAfterPhoto) {
+                                AsyncImage(
+                                    model = File(activity.photoAfterPath),
+                                    contentDescription = "Foto Depois Watermarked",
+                                    contentScale = ContentScale.FillWidth,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFFFFFBEB))
+                                        .padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.HourglassTop,
+                                        contentDescription = null,
+                                        tint = Color(0xFFD97706),
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Foto do DEPOIS ainda não registrada",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFB45309),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Abra a edição do registro para tirar a foto de conclusão e liberar o envio.",
+                                        color = Color(0xFF92400E),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -198,6 +232,7 @@ fun WatermarkPreviewModal(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Bottom Share & Export Actions
+                val canShareOrExport = activity.photoAfterPath.isNotBlank() && File(activity.photoAfterPath).exists()
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -207,12 +242,15 @@ fun WatermarkPreviewModal(
                             onShareWhatsApp(activity)
                             onDismiss()
                         },
+                        enabled = canShareOrExport,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = WhatsAppGreen,
-                            contentColor = Color.White
+                            contentColor = Color.White,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -235,6 +273,7 @@ fun WatermarkPreviewModal(
                                 onExportPdf(activity)
                                 onDismiss()
                             },
+                            enabled = canShareOrExport,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(44.dp),
@@ -252,6 +291,17 @@ fun WatermarkPreviewModal(
                                 fontSize = 13.sp
                             )
                         }
+                    }
+
+                    if (!canShareOrExport) {
+                        Text(
+                            text = "Envio e exportação bloqueados até a inclusão da foto do DEPOIS.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFD97706),
+                            fontSize = 11.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }

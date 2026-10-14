@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -126,8 +127,12 @@ fun FormScreen(
     var showGpsWarningDialog by remember { mutableStateOf(false) }
     var pendingShareToWhatsApp by remember { mutableStateOf(false) }
     var showCancelEditDialog by remember { mutableStateOf(false) }
-
     val scrollState = rememberScrollState()
+
+    // Intercept back button when editing: confirm cancellation to prevent accidental data loss
+    BackHandler(enabled = formState.isEditing) {
+        showCancelEditDialog = true
+    }
 
     Column(
         modifier = modifier
@@ -237,7 +242,7 @@ fun FormScreen(
                             )
                         }
 
-                        Row(
+                       /** Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -274,7 +279,7 @@ fun FormScreen(
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text("Exemplo", fontSize = 11.sp)
                             }
-                        }
+                        } **/
                     }
                 }
             }
@@ -559,7 +564,7 @@ fun FormScreen(
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
+                            keyboardType = KeyboardType.Decimal,
                             imeAction = ImeAction.Next
                         )
                     )
@@ -573,7 +578,7 @@ fun FormScreen(
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
+                            keyboardType = KeyboardType.Decimal,
                             imeAction = ImeAction.Next
                         )
                     )
@@ -856,7 +861,8 @@ fun FormScreen(
                             Spacer(modifier = Modifier.height(3.dp))
                             GpsAccuracyBadge(
                                 accuracy = formState.gpsAccuracy,
-                                isFetching = formState.isFetchingLocation
+                                isFetching = formState.isFetchingLocation,
+                                isFallback = formState.isLocationFallback
                             )
                         }
                     }
@@ -1079,10 +1085,10 @@ fun FormScreen(
             )
         }
 
-        // Photo Depois
+        // Photo Depois (Opcional para envio posterior, obrigatória para WhatsApp)
         PhotoCaptureCard(
-            title = if (photoCount == 3) "3. Foto DEPOIS (Conclusão)" else "2. Foto DEPOIS (Conclusão)",
-            subtitle = "Fotografe o serviço concluído no mesmo ângulo",
+            title = if (photoCount == 3) "3. Foto DEPOIS (Obrigatória para WhatsApp)" else "2. Foto DEPOIS (Obrigatória para WhatsApp)",
+            subtitle = if (formState.photoAfterUri == null) "Obrigatória para envio via WhatsApp (pode salvar pendente sem ela)" else "Foto de conclusão do serviço registrada",
             badgeColor = Color(0xFF22C55E), // Green
             selectedPhotoUri = formState.photoAfterUri,
             onPhotoCaptured = { uri -> viewModel.setPhotoAfter(uri) },
@@ -1096,6 +1102,8 @@ fun FormScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            val canSendToWhatsApp = formState.photoAfterUri != null && !formState.isSaving
+
             // Action 1: Immediate WhatsApp Share / Atualizar e Enviar
             Button(
                 onClick = {
@@ -1106,13 +1114,15 @@ fun FormScreen(
                         viewModel.saveActivity(context, shareImmediatelyToWhatsApp = true)
                     }
                 },
-                enabled = !formState.isSaving,
+                enabled = canSendToWhatsApp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 52.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = WhatsAppGreen,
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 ),
                 shape = RoundedCornerShape(14.dp)
             ) {
@@ -1136,6 +1146,29 @@ fun FormScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+
+            if (formState.photoAfterUri == null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Tire a foto do DEPOIS para liberar o envio ao WhatsApp.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
                     )
                 }
             }
@@ -1370,6 +1403,7 @@ private data class GpsBadgeVisual(
 private fun GpsAccuracyBadge(
     accuracy: Float?,
     isFetching: Boolean,
+    isFallback: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     if (isFetching) {
@@ -1397,6 +1431,12 @@ private fun GpsAccuracyBadge(
         }
     } else {
         val visual = when {
+            isFallback -> GpsBadgeVisual(
+                containerColor = Color(0xFFFFF3E0),
+                contentColor = Color(0xFFE65100),
+                icon = Icons.Default.Warning,
+                label = "Coordenadas Estimadas (Sem GPS)"
+            )
             accuracy == null -> GpsBadgeVisual(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,

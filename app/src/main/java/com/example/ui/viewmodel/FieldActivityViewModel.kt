@@ -57,7 +57,10 @@ data class FormUiState(
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val isEditing: Boolean = false,
-    val editingActivityId: Long? = null
+    val editingActivityId: Long? = null,
+    val isNewPhotoBefore: Boolean = false,
+    val isNewPhotoDuring: Boolean = false,
+    val isNewPhotoAfter: Boolean = false
 )
 
 sealed interface UiEvent {
@@ -320,35 +323,37 @@ class FieldActivityViewModel(
     }
 
     fun updateKmStart(value: String) {
-        _formState.update { it.copy(kmStart = value, errorMessage = null) }
+        val sanitized = value.replace(',', '.')
+        _formState.update { it.copy(kmStart = sanitized, errorMessage = null) }
     }
 
     fun updateKmEnd(value: String) {
-        _formState.update { it.copy(kmEnd = value, errorMessage = null) }
+        val sanitized = value.replace(',', '.')
+        _formState.update { it.copy(kmEnd = sanitized, errorMessage = null) }
     }
 
     fun setPhotoBefore(uri: Uri?) {
-        _formState.update { it.copy(photoBeforeUri = uri, errorMessage = null) }
+        _formState.update { it.copy(photoBeforeUri = uri, isNewPhotoBefore = true, errorMessage = null) }
     }
 
     fun setPhotoDuring(uri: Uri?) {
-        _formState.update { it.copy(photoDuringUri = uri, errorMessage = null) }
+        _formState.update { it.copy(photoDuringUri = uri, isNewPhotoDuring = true, errorMessage = null) }
     }
 
     fun setPhotoAfter(uri: Uri?) {
-        _formState.update { it.copy(photoAfterUri = uri, errorMessage = null) }
+        _formState.update { it.copy(photoAfterUri = uri, isNewPhotoAfter = true, errorMessage = null) }
     }
 
     fun removePhotoBefore() {
-        _formState.update { it.copy(photoBeforeUri = null) }
+        _formState.update { it.copy(photoBeforeUri = null, isNewPhotoBefore = false) }
     }
 
     fun removePhotoDuring() {
-        _formState.update { it.copy(photoDuringUri = null) }
+        _formState.update { it.copy(photoDuringUri = null, isNewPhotoDuring = false) }
     }
 
     fun removePhotoAfter() {
-        _formState.update { it.copy(photoAfterUri = null) }
+        _formState.update { it.copy(photoAfterUri = null, isNewPhotoAfter = false) }
     }
 
     fun fetchCurrentLocation(context: Context) {
@@ -442,6 +447,9 @@ class FieldActivityViewModel(
                     photoBeforeUri = uriBefore,
                     photoDuringUri = uriDuring,
                     photoAfterUri = uriAfter,
+                    isNewPhotoBefore = true,
+                    isNewPhotoDuring = true,
+                    isNewPhotoAfter = true,
                     errorMessage = null
                 )
             }
@@ -495,6 +503,9 @@ class FieldActivityViewModel(
                 photoAfterUri = uriAfter,
                 isEditing = true,
                 editingActivityId = activity.id,
+                isNewPhotoBefore = false,
+                isNewPhotoDuring = false,
+                isNewPhotoAfter = false,
                 errorMessage = null
             )
         }
@@ -515,7 +526,7 @@ class FieldActivityViewModel(
         _formState.update { createDefaultFormState() }
     }
 
-    fun validateForm(): String? {
+    fun validateForm(isSendingToWhatsApp: Boolean = false): String? {
         val state = _formState.value
         if (state.operatorName.isBlank()) return "Informe o Nome do Encarregado."
         if (state.activityType.isBlank() || state.activityType == DEFAULT_ACTIVITY_PLACEHOLDER) {
@@ -542,12 +553,14 @@ class FieldActivityViewModel(
         if (_photoCount.value == 3 && state.photoDuringUri == null) {
             return "Por favor, tire a foto do DURANTE a execução do serviço."
         }
-        if (state.photoAfterUri == null) return "Por favor, tire a foto do DEPOIS do serviço."
+        if (isSendingToWhatsApp && state.photoAfterUri == null) {
+            return "Para envio ao WhatsApp, a foto do DEPOIS é obrigatória."
+        }
         return null
     }
 
     fun saveActivity(context: Context, shareImmediatelyToWhatsApp: Boolean) {
-        val validationError = validateForm()
+        val validationError = validateForm(isSendingToWhatsApp = shareImmediatelyToWhatsApp)
         if (validationError != null) {
             _formState.update { it.copy(errorMessage = validationError) }
             viewModelScope.launch {
@@ -583,38 +596,16 @@ class FieldActivityViewModel(
 
                 val kmStartVal = state.kmStart.trim()
                 val kmEndVal = if (state.kmEnd.isBlank()) kmStartVal else state.kmEnd.trim()
+                val oldActivity = if (isEditingMode) savedActivities.value.firstOrNull { it.id == state.editingActivityId } else null
 
-                // Generate watermarked photos
-                val photoBeforePath = WatermarkUtil.createWatermarkedPhoto(
-                    context = context,
-                    sourceUri = state.photoBeforeUri!!,
-                    photoType = WatermarkUtil.PhotoType.BEFORE,
-                    operatorName = state.operatorName,
-                    highway = state.highway,
-                    direction = state.direction,
-                    laneType = state.laneType,
-                    activityType = state.activityType,
-                    studType = studTypeValue,
-                    plateType = plateTypeValue,
-                    plateCode = plateCodeValue,
-                    plateText = plateTextValue,
-                    lane = laneValue,
-                    legendDescription = legendDescValue,
-                    eixo = state.eixo,
-                    cadence = state.cadence,
-                    observations = state.observations,
-                    kmStart = kmStartVal,
-                    kmEnd = kmEndVal,
-                    latitude = state.latitude,
-                    longitude = state.longitude,
-                    timestampMs = timestamp
-                )
-
-                val photoDuringPath = if (_photoCount.value == 3 && state.photoDuringUri != null) {
+                // Generate or preserve watermarked photos (prevents double watermark on text-only edits)
+                val photoBeforePath = if (isEditingMode && !state.isNewPhotoBefore && oldActivity != null && oldActivity.photoBeforePath.isNotBlank() && File(oldActivity.photoBeforePath).exists()) {
+                    oldActivity.photoBeforePath
+                } else {
                     WatermarkUtil.createWatermarkedPhoto(
                         context = context,
-                        sourceUri = state.photoDuringUri,
-                        photoType = WatermarkUtil.PhotoType.DURING,
+                        sourceUri = state.photoBeforeUri!!,
+                        photoType = WatermarkUtil.PhotoType.BEFORE,
                         operatorName = state.operatorName,
                         highway = state.highway,
                         direction = state.direction,
@@ -635,34 +626,73 @@ class FieldActivityViewModel(
                         longitude = state.longitude,
                         timestampMs = timestamp
                     )
+                }
+
+                val photoDuringPath = if (_photoCount.value == 3) {
+                    if (isEditingMode && !state.isNewPhotoDuring && oldActivity != null && oldActivity.photoDuringPath.isNotBlank() && File(oldActivity.photoDuringPath).exists()) {
+                        oldActivity.photoDuringPath
+                    } else if (state.photoDuringUri != null) {
+                        WatermarkUtil.createWatermarkedPhoto(
+                            context = context,
+                            sourceUri = state.photoDuringUri,
+                            photoType = WatermarkUtil.PhotoType.DURING,
+                            operatorName = state.operatorName,
+                            highway = state.highway,
+                            direction = state.direction,
+                            laneType = state.laneType,
+                            activityType = state.activityType,
+                            studType = studTypeValue,
+                            plateType = plateTypeValue,
+                            plateCode = plateCodeValue,
+                            plateText = plateTextValue,
+                            lane = laneValue,
+                            legendDescription = legendDescValue,
+                            eixo = state.eixo,
+                            cadence = state.cadence,
+                            observations = state.observations,
+                            kmStart = kmStartVal,
+                            kmEnd = kmEndVal,
+                            latitude = state.latitude,
+                            longitude = state.longitude,
+                            timestampMs = timestamp
+                        )
+                    } else {
+                        ""
+                    }
                 } else {
                     ""
                 }
 
-                val photoAfterPath = WatermarkUtil.createWatermarkedPhoto(
-                    context = context,
-                    sourceUri = state.photoAfterUri!!,
-                    photoType = WatermarkUtil.PhotoType.AFTER,
-                    operatorName = state.operatorName,
-                    highway = state.highway,
-                    direction = state.direction,
-                    laneType = state.laneType,
-                    activityType = state.activityType,
-                    studType = studTypeValue,
-                    plateType = plateTypeValue,
-                    plateCode = plateCodeValue,
-                    plateText = plateTextValue,
-                    lane = laneValue,
-                    legendDescription = legendDescValue,
-                    eixo = state.eixo,
-                    cadence = state.cadence,
-                    observations = state.observations,
-                    kmStart = kmStartVal,
-                    kmEnd = kmEndVal,
-                    latitude = state.latitude,
-                    longitude = state.longitude,
-                    timestampMs = timestamp
-                )
+                val photoAfterPath = if (state.photoAfterUri == null) {
+                    ""
+                } else if (isEditingMode && !state.isNewPhotoAfter && oldActivity != null && oldActivity.photoAfterPath.isNotBlank() && File(oldActivity.photoAfterPath).exists()) {
+                    oldActivity.photoAfterPath
+                } else {
+                    WatermarkUtil.createWatermarkedPhoto(
+                        context = context,
+                        sourceUri = state.photoAfterUri,
+                        photoType = WatermarkUtil.PhotoType.AFTER,
+                        operatorName = state.operatorName,
+                        highway = state.highway,
+                        direction = state.direction,
+                        laneType = state.laneType,
+                        activityType = state.activityType,
+                        studType = studTypeValue,
+                        plateType = plateTypeValue,
+                        plateCode = plateCodeValue,
+                        plateText = plateTextValue,
+                        lane = laneValue,
+                        legendDescription = legendDescValue,
+                        eixo = state.eixo,
+                        cadence = state.cadence,
+                        observations = state.observations,
+                        kmStart = kmStartVal,
+                        kmEnd = kmEndVal,
+                        latitude = state.latitude,
+                        longitude = state.longitude,
+                        timestampMs = timestamp
+                    )
+                }
 
                 val activity = FieldActivity(
                     id = if (isEditingMode) state.editingActivityId!! else 0,
@@ -741,6 +771,12 @@ class FieldActivityViewModel(
     }
 
     fun shareExistingActivity(context: Context, activity: FieldActivity) {
+        if (activity.photoAfterPath.isBlank()) {
+            viewModelScope.launch {
+                _uiEvent.emit(UiEvent.ShowToast("Envio bloqueado: adicione a foto do DEPOIS em [Editar] para enviar."))
+            }
+            return
+        }
         viewModelScope.launch {
             val shared = ShareUtil.shareActivityToWhatsApp(context, activity)
             if (shared && !activity.isSent) {
@@ -785,6 +821,14 @@ class FieldActivityViewModel(
             return
         }
 
+        val incomplete = toExport.filter { it.photoAfterPath.isBlank() }
+        if (incomplete.isNotEmpty()) {
+            viewModelScope.launch {
+                _uiEvent.emit(UiEvent.ShowToast("Exportação bloqueada: ${incomplete.size} registro(s) aguardam a foto do DEPOIS. Conclua-os antes de exportar."))
+            }
+            return
+        }
+
         _isExporting.value = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -806,6 +850,14 @@ class FieldActivityViewModel(
         if (toExport.isEmpty()) {
             viewModelScope.launch {
                 _uiEvent.emit(UiEvent.ShowToast("Nenhum registro para exportação em CSV."))
+            }
+            return
+        }
+
+        val incomplete = toExport.filter { it.photoAfterPath.isBlank() }
+        if (incomplete.isNotEmpty()) {
+            viewModelScope.launch {
+                _uiEvent.emit(UiEvent.ShowToast("Exportação bloqueada: ${incomplete.size} registro(s) aguardam a foto do DEPOIS. Conclua-os antes de exportar."))
             }
             return
         }
@@ -850,6 +902,7 @@ class FieldActivityViewModel(
                 e.printStackTrace()
             }
             repository.delete(activity)
+            _selectedActivityIds.update { it - activity.id }
             _uiEvent.emit(UiEvent.ShowToast("Registro e fotos excluídos com sucesso."))
         }
     }
